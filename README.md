@@ -1,4 +1,4 @@
-# Authenticating to a [Handle.net](https://www.handle.net) Server to Use the REST interface
+# Authenticating to a [Handle.net](https://www.handle.net) Server to Use the REST interface with a Public Key Authentication
 
 The documentation on this is rather terse, and some of the [sources](#sources) are still helpful but do not work anymore on contemporary Python.  The Handle.net [manual](http://www.handle.net/tech_manual/HN_Tech_Manual_9.pdf) and the [documentation](http://www.handle.net/hnr_documentation.html) in general state things correctly, but in my case needed some research.
 
@@ -34,14 +34,14 @@ We assume that Handle.net software is at `/opt/handle`.
 
 We use an administrator handle `300:10932/ADMIN` as an example.  This has to be adapted, of course.
 
-Let us assume we already generated keys for this user using the Handle.net scripts.  Probably, this key has a passphrase, with which Python cannot deal, and it is in the wrong format.  Conversion is possible with the Handle.net scripts, and it is sufficient for challenge authentication.
+Let us assume we already generated keys for this user using the Handle.net scripts; we assume this is a DSA key.  Probably, this key has a passphrase, with which Python cannot deal, and it is in the wrong format.  Conversion is possible with the Handle.net scripts, and it is sufficient for challenge authentication.
 
 ```bash
 /opt/handle/bin/hdl-convert-key private.key > private.pem
 /opt/handle/bin/hdl-convert-key public.key > public.pem
 ```
 
-For certificate authentication, we also need a certificate request:
+For certificate authentication, we also need a certificate request.  The [manual](http://www.handle.net/tech_manual/HN_Tech_Manual_9.pdf) (14.6.2) states that “[t]he public key of the certificate must correspond to the HS_PUBKEY value stored at that handle and index.”  This is is achieved by using the private key as the basis for the generation of a certificate: 
 
 ```bash
 openssl req -new -x509 -key private.pem -subj '/UID=300:10932\/ADMIN' \
@@ -89,6 +89,14 @@ print(resp.content)
 
 ## Connecting with keys and challenge
 
+The important points are:
+
+- extracting `sessionId` and `nonce` from the challenge,
+- generating a client nonce `cnonce`,
+- signing the concatenation of nonce and cnonce,
+- building the header.
+
+
 ```python
 #!/usr/bin/env python
 import base64
@@ -121,9 +129,6 @@ URL = f"{SERVER}/api/handles?prefix={PREFIX}"
 EIGHT_BIT_ENCODING = "latin1"  # for converting bytes and strings
 
 
-with open(KEY_FILE, "r") as key_file:
-    PRIVATE_KEY = DSA.import_key(key_file.read())
-
 # first get info on session and authentication:
 resp = requests.get(URL, verify=SERVER_CERTIFICATE)
 print(resp.status_code)  # should be 401, insufficient permissions
@@ -140,8 +145,10 @@ cnonce_bytes = get_random_bytes(16)
 cnonce_encoded = base64.b64encode(cnonce_bytes).decode(EIGHT_BIT_ENCODING)
 sys.stderr.write(f"NONCE # {len(nonce_bytes)}  CNONCE # {len(cnonce_bytes)}\n")
 
-# sign nonce + cnonce:
+# sign nonce + cnonce concatenation:
 to_sign = SHA256.new(nonce_bytes + cnonce_bytes)
+with open(KEY_FILE, "r") as key_file:
+    PRIVATE_KEY = DSA.import_key(key_file.read())
 signer = DSS.new(PRIVATE_KEY, 'fips-186-3',
                  encoding="der")
 sig = base64.encodebytes(signer.sign(to_sign)).decode("ASCII").strip()
@@ -153,7 +160,7 @@ headers = {'Authorization':
            f'cnonce="{cnonce_encoded}", alg="SHA256", signature="{sig}"'}
 # print(headers)
 
-# should now be 200:
+# the status code should now be 200:
 print(requests.get(URL, verify=SERVER_CERTIFICATE, headers=headers).status_code)
 headers = {'Authorization':
                f'Handle sessionId="{session_id}"'}
