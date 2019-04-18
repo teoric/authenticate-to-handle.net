@@ -7,7 +7,7 @@ According to chapter 14 of the manual, one can authenticate to the Handle.net se
 
 We first prepare the keys, then we illustrate connecting to a handle server.
 
-This was tested on Handle.net softare 9.1, but should work with version 8 as well, I suppose.
+This was tested on Handle.net softare 9.1, but should work with version 8 as well, I suppose.  Python 3.6+ should work.
 
 
 # Preliminary: Get Software
