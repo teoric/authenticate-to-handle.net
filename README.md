@@ -164,7 +164,7 @@ headers = {'Authorization':
 print(requests.get(URL, verify=SERVER_CERTIFICATE, headers=headers).status_code)
 headers = {'Authorization':
                f'Handle sessionId="{session_id}"'}
-# we can still continue authenticated for some time:
+# we can still continue authenticated for some time by holding on to the session:
 print(requests.get(URL, verify=SERVER_CERTIFICATE, headers=headers).status_code)
 ```
 
