@@ -34,7 +34,7 @@ We assume that Handle.net software is at `/opt/handle`.
 
 We use an administrator handle `300:10932/ADMIN` as an example.  This has to be adapted, of course.
 
-Let us assume we already generated keys for this user using the Handle.net scripts; we assume this is a DSA key.  Probably, this key has a passphrase, with which Python cannot deal, and it is in the wrong format.  Conversion is possible with the Handle.net scripts, and it is sufficient for challenge authentication.
+Let us assume we already generated keys for this user using the Handle.net scripts; we assume this is a DSA key.  Probably, this key has a passphrase, with which the Python `requests` library cannot deal (unless you prepare a PKCS12 file and use [`requests_pkcs12`](https://github.com/m-click/requests_pkcs12)), and it is in the wrong format.  Conversion is possible with the Handle.net scripts, and it is sufficient for challenge authentication.
 
 ```bash
 /opt/handle/bin/hdl-convert-key private.key > private.pem
@@ -47,6 +47,12 @@ For certificate authentication, we also need a certificate request.  The [manual
 openssl req -new -x509 -key private.pem -subj '/UID=300:10932\/ADMIN' \
   -days 3652 -out cert.pem
 ```
+
+> For generating a PKCS12 file, use:
+> 
+> ```bash
+> openssl pkcs12 -export -clcerts -in cert.pem -inkey private2.pem -out cert-pw.pem -passout pass:passphrase
+> ```
 
 # Connecting 
 
